@@ -378,12 +378,12 @@ export const parseCommand = (rawInput, knownProducts = []) => {
     'coffee powder', 'soap', 'salt', 'dal', 'water'
   ])];
 
-  // Intelligent product matcher with aliases & fuzzy lookup (handles suffixes like ki, lo, nunchi, కి, లో)
+  // Intelligent product matcher with aliases & fuzzy lookup (handles suffixes like ki, lo, nunchi, ni, nu, కి, లో, ని)
   const matchProductInfo = (text) => {
     // 1. Direct exact alias match
     for (const [canonical, aliases] of Object.entries(PRODUCT_ALIASES)) {
       for (const alias of aliases) {
-        const regex = new RegExp(`(^|\\s)${alias}(?:ki|lo|nunchi|నుండి|కి|క్కి|లో)?(?:\\s|$)`, 'i');
+        const regex = new RegExp(`(^|\\s)${alias}(?:ki|lo|nunchi|nu|ni|నుండి|కి|క్కి|లో|ని|ను)?(?:\\s|$)`, 'i');
         if (regex.test(text)) {
           // Check if user specifically mentioned a sub-type like "cooking oil" vs just "oil"
           if (canonical === 'cooking oil' && (alias === 'oil' || alias === 'nune' || alias === 'tel' || alias === 'నూనె')) {
@@ -404,7 +404,7 @@ export const parseCommand = (rawInput, knownProducts = []) => {
     // 2. Direct catalog substring/word match (longer names first)
     const sortedCatalog = [...productCatalog].sort((a, b) => b.length - a.length);
     for (const prod of sortedCatalog) {
-      const regex = new RegExp(`(^|\\s)${prod}(?:ki|lo|nunchi|\\b|\\s|$)`, 'i');
+      const regex = new RegExp(`(^|\\s)${prod}(?:ki|lo|nunchi|nu|ni|నుండి|కి|క్కి|లో|ని|ను|\\b|\\s|$)`, 'i');
       if (regex.test(text)) {
         return { matched: prod, isAmbiguous: false, candidates: [] };
       }
@@ -453,14 +453,16 @@ export const parseCommand = (rawInput, knownProducts = []) => {
     // Telugu Transliterated
     'stock ela undi', 'paristhiti enti', 'gurinchi cheppu', 'enni rojulu vastundi',
     'rojuki entha vadutunnam', 'inka konala', 'stock bagunda', 'minimum stock entha',
-    'reorder suggestion enti', 'ela undi'
+    'reorder suggestion enti', 'ela undi', 'stock ela undi'
   ];
   const isExplainTrigger = explainPatterns.some(p => normalized.includes(p));
   if (isExplainTrigger) {
     const prodMatch = matchProductInfo(normalized);
     if (prodMatch.matched) {
+      const canonicalName = knownProducts.find(p => p.toLowerCase() === prodMatch.matched.toLowerCase()) || 
+                            prodMatch.matched.charAt(0).toUpperCase() + prodMatch.matched.slice(1);
       result.action = 'STOCK_EXPLAIN';
-      result.product = prodMatch.matched;
+      result.product = canonicalName;
       result.isBusinessQuery = true;
       result.confidence = 0.96;
       result.confidenceLevel = 'HIGH';
@@ -511,7 +513,7 @@ export const parseCommand = (rawInput, knownProducts = []) => {
     return result;
   }
 
-  // 5. LOW_STOCK ("What is running low?", "ఏవి తక్కువగా ఉన్నాయి?")
+  // 5. LOW_STOCK ("What is running low?", "ఏవి తక్కువగా ఉన్నాయి?", "Em stock takkuvaga undi")
   const lowStockPatterns = [
     // English
     'running low', 'low stock', 'what is running low', 'what s running low', 'whats running low',
@@ -525,6 +527,8 @@ export const parseCommand = (rawInput, knownProducts = []) => {
     'ఏవి వెంటనే కొనాలి', 'తక్కువగా ఉన్నాయి', 'అయిపోతున్నాయి',
     // Telugu Transliterated
     'low stock products chupinchu', 'low stock chupinchu', 'takkuva unnaayi', 'takkuvaga unnayi',
+    'takkuvaga undi', 'takkuva undi', 'takkuva undhi', 'takkuvaga undhi',
+    'em stock takkuvaga undi', 'em takkuvaga undi', 'em stock takkuva undi', 'em takkuva undi',
     'takkuva stock', 'kam stock', 'which products low ga unnayi', 'low ga unnayi',
     'almost aipothunnayi', 'aipothunnayi', 'ayipothunnayi', 'naaku low stock items cheppu'
   ];
@@ -536,7 +540,7 @@ export const parseCommand = (rawInput, knownProducts = []) => {
     return result;
   }
 
-  // 6. REORDER / BUY_TODAY ("What do I need to buy today?", "ఈరోజు ఏం కొనాలి?")
+  // 6. REORDER / BUY_TODAY ("What do I need to buy today?", "ఈరోజు ఏం కొనాలి?", "Em konali?")
   const reorderPatterns = [
     // English
     'what do i need to buy today', 'what should i buy today', 'what should i buy',
@@ -549,9 +553,11 @@ export const parseCommand = (rawInput, knownProducts = []) => {
     'ఈరోజు ఏం కొనాలి', 'ఈ రోజు ఏం కొనాలి', 'ఏం రీస్టాక్ చేయాలి', 'ఏ వస్తువులు మళ్లీ కొనాలి',
     'ఏం ఆర్డర్ చేయాలి', 'ఎంత ఆర్డర్ చేయాలి', 'ఎంత కొనాలి', 'ఈరోజు కొనాల్సిన వస్తువులు ఏవి',
     'స్టాక్ అయిపోకముందు ఏం కొనాలి', 'కొనాల్సిన వాటి లిస్ట్ చూపించు', 'కొనాల్సిన వాటి లిస్ట్',
+    'ఏం కొనాలి',
     // Telugu Transliterated
     'em purchase cheyyali today', 'em purchase cheyyali', 'em order cheyyali', 'entha order cheyyali',
-    'reorder kavala', 'ivala em konalo cheppu', 'naaku ivala em konalo cheppu', 'reorder'
+    'reorder kavala', 'ivala em konalo cheppu', 'naaku ivala em konalo cheppu', 'reorder',
+    'em konali', 'em konali cheppu', 'em konalo'
   ];
   if (reorderPatterns.some(p => normalized.includes(p))) {
     result.action = 'REORDER';
@@ -645,22 +651,33 @@ export const parseCommand = (rawInput, knownProducts = []) => {
   result.action = action;
 
   // 9. EXTRACT QUANTITY (including negative numbers or words)
-  // Check for negative numbers like -10 or - 10
-  const negMatch = normalized.match(/(?:^|\s)(-\s*\d+(?:\.\d+)?)(?:\s|$)/);
-  if (negMatch) {
-    result.quantity = parseFloat(negMatch[1].replace(/\s+/g, ''));
-  } else {
-    const numberRegex = /\b(\d+(?:\.\d+)?)\b/;
-    const numMatch = normalized.match(numberRegex);
-    if (numMatch) {
-      result.quantity = parseFloat(numMatch[1]);
+  // Inquiry actions do not set/modify inventory quantity
+  const isInquiryAction = ['CHECK', 'STOCK_EXPLAIN', 'LOW_STOCK', 'REORDER', 'DAILY_ACTIVITY', 'ATTENTION', 'FASTEST_SELLING', 'MOST_USED'].includes(action);
+
+  if (!isInquiryAction) {
+    // Check for negative numbers like -10 or - 10
+    const negMatch = normalized.match(/(?:^|\s)(-\s*\d+(?:\.\d+)?)(?:\s|$)/);
+    if (negMatch) {
+      result.quantity = parseFloat(negMatch[1].replace(/\s+/g, ''));
     } else {
-      // Check word numerals
-      for (const [word, val] of Object.entries(NUMBER_WORDS)) {
-        const wordRegex = new RegExp(`(^|\\s)${word.trim()}(\\s|$)`, 'i');
-        if (wordRegex.test(normalized)) {
-          result.quantity = val;
-          break;
+      const numberRegex = /\b(\d+(?:\.\d+)?)\b/;
+      const numMatch = normalized.match(numberRegex);
+      if (numMatch) {
+        result.quantity = parseFloat(numMatch[1]);
+      } else {
+        // Check word numerals
+        for (const [word, val] of Object.entries(NUMBER_WORDS)) {
+          if (word === 'do') {
+            // Guard against English auxiliary verb "do"
+            if (/\b(?:how|what|why|where)\s+do\b/i.test(normalized) || /\bdo\s+(?:i|you|we|they|not|n't)\b/i.test(normalized)) {
+              continue;
+            }
+          }
+          const wordRegex = new RegExp(`(^|\\s)${word.trim()}(\\s|$)`, 'i');
+          if (wordRegex.test(normalized)) {
+            result.quantity = val;
+            break;
+          }
         }
       }
     }
@@ -705,7 +722,8 @@ export const parseCommand = (rawInput, knownProducts = []) => {
       'vesey', 'kalupu', 'dabba', 'dikhao', 'chupu', 'chupinchu', 'to', 'from', 'bags',
       'cartons', 'kg', 'litres', 'grams', 'explain', 'tell', 'status', 'check',
       'ki', 'lo', 'nunchi', 'stakki', 'stocklo', 'inka', 'today', 'ivala', 'na', 'naaku',
-      'cheppu', 'stak', 'వచ్చాయి', 'వచ్చింది', 'కొన్నాను', 'తీసేయి', 'తీసివేయి', 'తగ్గించు',
+      'cheppu', 'stak', 'ni', 'nu', 'ని', 'ను', 'enti', 'ela', 'ఏంటి', 'ఎలా',
+      'వచ్చాయి', 'వచ్చింది', 'కొన్నాను', 'తీసేయి', 'తీసివేయి', 'తగ్గించు',
       'అమ్మాను', 'అమ్మాం', 'ఎంత', 'ఎన్ని', 'ఉంది', 'ఉన్నాయి', 'ఈరోజు', 'స్టాక్', 'స్టాక్కి',
       'లో', 'కి', 'క్కి', 'నుండి', 'నంచి'
     ];
@@ -725,6 +743,13 @@ export const parseCommand = (rawInput, knownProducts = []) => {
   if (result.product) score += 0.25;
   if (result.quantity !== null && !isNaN(result.quantity)) score += 0.15;
   if (result.unit) score += 0.10;
+
+  // Inquiries like CHECK, STOCK_EXPLAIN, LOW_STOCK, REORDER do not have quantities/units
+  if (['CHECK', 'STOCK_EXPLAIN'].includes(result.action) && result.product) {
+    score = 0.95;
+  } else if (['LOW_STOCK', 'REORDER', 'DAILY_ACTIVITY', 'ATTENTION', 'FASTEST_SELLING', 'MOST_USED'].includes(result.action)) {
+    score = 0.95;
+  }
 
   if (hasUncertainty) {
     score -= 0.25;

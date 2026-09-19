@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { speakResponse, cancelSpeech } from '../services/speechService.js';
 
 // Check browser support for Web Speech API
 const SpeechRecognition = typeof window !== 'undefined' 
@@ -21,7 +22,8 @@ export const useVoiceRecognition = (options = {}) => {
       const recognition = new SpeechRecognition();
       recognition.continuous = false; // Capture discrete sentence
       recognition.interimResults = true;
-      recognition.lang = language;
+      recognition.maxAlternatives = 1;
+      recognition.lang = language || 'en-IN';
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -51,15 +53,24 @@ export const useVoiceRecognition = (options = {}) => {
       };
 
       recognition.onerror = (event) => {
-        console.warn('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
-          setError('Microphone permission was denied. Please allow microphone access in your browser settings.');
-        } else if (event.error === 'no-speech') {
-          setError('No speech was detected. Please try speaking again.');
-        } else if (event.error === 'network') {
-          setError('Network issue with speech recognition service.');
+        const errType = event.error;
+        console.warn('Speech recognition error:', errType);
+
+        if (errType === 'not-allowed' || errType === 'service-not-allowed') {
+          setError('Microphone permission is blocked. Please allow microphone access in your browser settings.');
+        } else if (errType === 'no-speech') {
+          setError("I didn't hear anything. Please try again.");
+        } else if (errType === 'audio-capture') {
+          setError('No microphone was detected on your device. Please ensure a microphone is connected.');
+        } else if (errType === 'network') {
+          setError('Network error encountered with speech recognition service.');
+        } else if (errType === 'aborted') {
+          // Normal when aborted by code
+          setError(null);
+        } else if (errType === 'language-not-supported') {
+          setError('Selected language is not supported by your browser.');
         } else {
-          setError(`Speech error: ${event.error}`);
+          setError(`Speech error: ${errType}`);
         }
         setIsListening(false);
       };
@@ -71,7 +82,7 @@ export const useVoiceRecognition = (options = {}) => {
       recognitionRef.current = recognition;
     } else {
       setIsSupported(false);
-      setError('Web Speech API is not supported in this browser. Please use Chrome, Edge, or Safari, or use text commands.');
+      setError('Voice recognition is not supported in this browser. Please use Chrome or the text input.');
     }
 
     return () => {
@@ -87,19 +98,20 @@ export const useVoiceRecognition = (options = {}) => {
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current) {
-      setError('Speech recognition is not initialized.');
+      setError('Voice recognition is not supported in this browser. Please use Chrome or the text input.');
       return;
     }
 
     try {
+      // Cancel any ongoing TTS before opening mic to avoid audio feedback
+      cancelSpeech();
       setTranscript('');
       setInterimTranscript('');
       setError(null);
-      recognitionRef.current.lang = language;
+      recognitionRef.current.lang = language || 'en-IN';
       recognitionRef.current.start();
     } catch (err) {
       console.warn('Recognition start exception:', err);
-      // If already started, stop first
       try {
         recognitionRef.current.stop();
       } catch (e) {}
@@ -125,19 +137,7 @@ export const useVoiceRecognition = (options = {}) => {
    * Speak back feedback to user via Web SpeechSynthesis API
    */
   const speakText = useCallback((text) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window && text) {
-      try {
-        // Cancel any active speech
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.lang = language === 'te-IN' ? 'te-IN' : (language === 'hi-IN' ? 'hi-IN' : 'en-IN');
-        window.speechSynthesis.speak(utterance);
-      } catch (e) {
-        console.warn('Speech synthesis error:', e);
-      }
-    }
+    speakResponse(text, language);
   }, [language]);
 
   return {
@@ -152,6 +152,8 @@ export const useVoiceRecognition = (options = {}) => {
     stopListening,
     resetTranscript,
     speakText,
+    speakResponse,
+    cancelSpeech,
   };
 };
 

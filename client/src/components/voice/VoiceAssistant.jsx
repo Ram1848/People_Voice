@@ -105,8 +105,12 @@ export const VoiceAssistant = ({
     } catch (err) {
       const errData = err.response?.data || {
         success: false,
-        message: err.message || 'Error executing voice command. Please try again.',
-        spokenMessage: 'Could not execute command. Please verify your request.',
+        message: !err.response 
+          ? "I couldn't connect to the inventory service. Please try again." 
+          : (err.message || 'Error executing voice command. Please try again.'),
+        spokenMessage: !err.response 
+          ? "I couldn't connect to the inventory service. Please try again." 
+          : 'Could not execute command. Please verify your request.',
       };
       setCurrentResponse(errData);
       setPendingConfirmation(null);
@@ -150,9 +154,13 @@ export const VoiceAssistant = ({
       const errData = err.response?.data || {
         success: false,
         message: err.message || 'Failed to confirm command.',
+        spokenMessage: 'Failed to confirm command. Please try again.',
       };
       setCurrentResponse(errData);
       setPendingConfirmation(null);
+      if (ttsEnabled && errData.spokenMessage) {
+        speakText(errData.spokenMessage);
+      }
     } finally {
       setConfirmLoading(false);
     }
@@ -257,12 +265,28 @@ export const VoiceAssistant = ({
       </div>
 
       {/* Main Microphone Stage */}
-      <VoiceButton 
-        isListening={isListening}
-        isProcessing={isProcessing}
-        onClick={handleMicToggle}
-        size={compact ? 'md' : 'hero'}
-      />
+      {(() => {
+        const getUiState = () => {
+          if (isListening) return 'LISTENING';
+          if (isProcessing) return 'PROCESSING';
+          if (pendingConfirmation) return 'CONFIRMATION';
+          if (currentResponse) {
+            return currentResponse.success ? 'SUCCESS' : 'ERROR';
+          }
+          if (voiceError) return 'ERROR';
+          return 'READY';
+        };
+
+        return (
+          <VoiceButton 
+            isListening={isListening}
+            isProcessing={isProcessing}
+            uiState={getUiState()}
+            onClick={handleMicToggle}
+            size={compact ? 'md' : 'hero'}
+          />
+        );
+      })()}
 
       {/* Transcript & Input Card */}
       <TranscriptCard

@@ -7,9 +7,16 @@ export const VoiceButton = ({
   isListening,
   isProcessing,
   onClick,
-  state = 'IDLE',
+  uiState = 'READY',
   size = 'lg',
 }) => {
+  // Determine effective state
+  const effectiveState = isListening 
+    ? 'LISTENING' 
+    : isProcessing 
+      ? 'PROCESSING' 
+      : uiState || 'READY';
+
   return (
     <div className="flex flex-col items-center justify-center my-4 select-none">
       {/* Liquid Voice Button Orb */}
@@ -22,11 +29,23 @@ export const VoiceButton = ({
 
       {/* Audio Waveform (Visible when listening) */}
       <div className="h-8 my-2 flex items-center justify-center">
-        {isListening ? (
+        {effectiveState === 'LISTENING' ? (
           <GlassWaveform isListening={true} bars={20} />
-        ) : isProcessing ? (
+        ) : effectiveState === 'PROCESSING' ? (
           <span className="text-xs font-semibold text-purple-700 animate-pulse tracking-wide">
             Understanding voice command with AI...
+          </span>
+        ) : effectiveState === 'CONFIRMATION' ? (
+          <span className="text-xs font-semibold text-amber-700 tracking-wide">
+            Confirmation required before modifying inventory
+          </span>
+        ) : effectiveState === 'SUCCESS' ? (
+          <span className="text-xs font-semibold text-emerald-700 tracking-wide">
+            Action completed successfully
+          </span>
+        ) : effectiveState === 'ERROR' ? (
+          <span className="text-xs font-semibold text-rose-700 tracking-wide">
+            Command could not be executed
           </span>
         ) : (
           <span className="text-xs font-medium text-slate-400">
@@ -37,17 +56,29 @@ export const VoiceButton = ({
 
       {/* Apple-style Capsule Status Pill */}
       <div className="mt-1">
-        {isListening ? (
+        {effectiveState === 'LISTENING' ? (
           <GlassBadge variant="danger" size="md" dot>
-            LISTENING — Speak now
+            LISTENING
           </GlassBadge>
-        ) : isProcessing ? (
+        ) : effectiveState === 'PROCESSING' ? (
           <GlassBadge variant="ai" size="md" dot>
-            PROCESSING COMMAND
+            PROCESSING
+          </GlassBadge>
+        ) : effectiveState === 'CONFIRMATION' ? (
+          <GlassBadge variant="amber" size="md" dot>
+            CONFIRMATION
+          </GlassBadge>
+        ) : effectiveState === 'SUCCESS' ? (
+          <GlassBadge variant="success" size="md" dot>
+            SUCCESS
+          </GlassBadge>
+        ) : effectiveState === 'ERROR' ? (
+          <GlassBadge variant="danger" size="md" dot>
+            ERROR
           </GlassBadge>
         ) : (
           <GlassBadge variant="success" size="md" dot>
-            AI ASSISTANT READY
+            READY
           </GlassBadge>
         )}
       </div>

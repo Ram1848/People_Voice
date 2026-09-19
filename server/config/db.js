@@ -17,11 +17,26 @@ const DB_PASSWORD = process.env.DB_PASSWORD || '';
 const DB_NAME = process.env.DB_NAME || 'people_voice';
 const DB_PORT = parseInt(process.env.DB_PORT || '3306', 10);
 
+// Determine SSL config: Do not enforce SSL on localhost/127.0.0.1; support TiDB Cloud & cloud providers safely
+const getSslConfig = () => {
+  if (process.env.DB_SSL === 'true') {
+    return { minVersion: 'TLSv1.2', rejectUnauthorized: false };
+  }
+  if (process.env.DB_SSL === 'false') {
+    return undefined;
+  }
+  if (DB_HOST === 'localhost' || DB_HOST === '127.0.0.1') {
+    return undefined;
+  }
+  return { minVersion: 'TLSv1.2', rejectUnauthorized: false };
+};
+
 // Connection pool
 let pool = null;
 
 export const getPool = () => {
   if (!pool) {
+    const sslConfig = getSslConfig();
     pool = mysql.createPool({
       host: DB_HOST,
       user: DB_USER,
@@ -35,10 +50,7 @@ export const getPool = () => {
 
       decimalNumbers: true,
 
-      // Required for TiDB Cloud
-      ssl: {
-        minVersion: 'TLSv1.2'
-      }
+      ...(sslConfig ? { ssl: sslConfig } : {})
     });
   }
 

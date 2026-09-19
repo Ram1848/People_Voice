@@ -38,6 +38,9 @@ export const getTodayActivity = async (actionFilter = null) => {
     }
   });
 
+  addedUnits = Math.round(addedUnits * 100) / 100;
+  removedUnits = Math.round(removedUnits * 100) / 100;
+
   const formattedTransactions = rows.map(r => {
     const timeStr = new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return {
@@ -62,6 +65,7 @@ export const getTodayActivity = async (actionFilter = null) => {
   }
 
   return {
+    totalTransactions: rows.length,
     summary: {
       addedUnits,
       removedUnits,
