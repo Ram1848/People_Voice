@@ -21,18 +21,38 @@ const allowedOrigins = [
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
   'http://127.0.0.1:3000',
+  'https://frontend-qefm814lc-rams-projects-ded2cc1c.vercel.app',
   'https://frontend-delta-mocha-nx53nc3jof.vercel.app',
   ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : []),
 ];
 
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (origin.endsWith('.vercel.app')) return true;
+  return false;
+};
+
+// Global CORS pre-flight & headers middleware to ensure browsers never encounter CORS errors
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (isOriginAllowed(origin)) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, server-to-server)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+    if (!origin || isOriginAllowed(origin)) {
       return callback(null, true);
     }
-    // Fallback: in development or when wildcards used
     return callback(null, true);
   },
   credentials: true,
@@ -44,6 +64,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
   next();
+});
+
+// Root /health endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'people-voice-backend',
+  });
 });
 
 // API Routes

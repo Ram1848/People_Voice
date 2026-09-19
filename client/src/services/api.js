@@ -2,9 +2,15 @@ import axios from 'axios';
 
 const getBaseURL = () => {
   const envUrl = import.meta.env.VITE_API_URL;
-  if (!envUrl) return '/api';
-  const clean = envUrl.replace(/\/+$/, '');
-  return clean.endsWith('/api') ? clean : `${clean}/api`;
+  if (envUrl) {
+    const clean = envUrl.replace(/\/+$/, '');
+    return clean.endsWith('/api') ? clean : `${clean}/api`;
+  }
+  // Robust production fallback: If running on Vercel or any remote domain without VITE_API_URL embedded, target Render backend
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://people-voice-backend-0jmm.onrender.com/api';
+  }
+  return '/api';
 };
 
 const api = axios.create({
@@ -14,6 +20,30 @@ const api = axios.create({
   },
   timeout: 15000,
 });
+
+// Request interceptor for runtime diagnostics
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+  }
+  return config;
+});
+
+// Response interceptor for safe, informative debugging (never logs secrets)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('[API Failure Details]', {
+      fullUrl: `${error.config?.baseURL || ''}${error.config?.url || ''}`,
+      method: error.config?.method?.toUpperCase(),
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      responseBody: error.response?.data,
+      errorMessage: error.message,
+    });
+    return Promise.reject(error);
+  }
+);
 
 export const getDashboard = async () => {
   const res = await api.get('/dashboard');
